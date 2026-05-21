@@ -1,0 +1,9 @@
+{
+  "agent_id": "<YOUR_AGENT_ID>",
+  "schedule": {
+    "type": "cron",
+    "expression": "0 7 * * *",
+    "timezone": "Europe/London"
+  },
+  "input_prompt_ref": "config/daily_run_prompt.md"
+}

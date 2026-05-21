@@ -1,0 +1,78 @@
+{
+  "name": "podcast-monitor",
+  "description": "Daily podcast monitoring agent for Hamid. Reads a Notion-maintained list of podcasts, fetches transcripts from YouTube, summarizes new episodes against a personal interest profile, and delivers to Notion + Slack + email.",
+  "model": "claude-sonnet-4-6",
+  "tools": [
+    {
+      "type": "agent_toolset_20260401"
+    }
+  ],
+  "mcp_servers": [
+    {
+      "type": "url",
+      "url": "https://mcp.notion.com/mcp",
+      "name": "notion",
+      "authorization_token_ref": "NOTION_TOKEN"
+    },
+    {
+      "type": "url",
+      "url": "https://mcp.slack.com/mcp",
+      "name": "slack",
+      "authorization_token_ref": "SLACK_BOT_TOKEN"
+    }
+  ],
+  "sandbox": {
+    "preinstalled_packages": [
+      "feedparser==6.0.12",
+      "youtube-transcript-api>=0.6.2",
+      "yt-dlp",
+      "requests",
+      "python-dateutil",
+      "resend"
+    ]
+  },
+  "memory": {
+    "enabled": true,
+    "namespace": "podcast-monitor-v1"
+  },
+  "outcomes": {
+    "enabled": true,
+    "rubric": [
+      {
+        "name": "notion_delivery_succeeded",
+        "description": "A new page was created in the Daily Briefings database for today's date with all expected child blocks.",
+        "severity": "critical"
+      },
+      {
+        "name": "slack_delivery_succeeded",
+        "description": "A Slack message was posted to the configured channel containing a link to today's Notion briefing.",
+        "severity": "critical"
+      },
+      {
+        "name": "email_delivery_succeeded",
+        "description": "An email containing today's briefing was sent to the configured address.",
+        "severity": "high"
+      },
+      {
+        "name": "all_active_podcasts_checked",
+        "description": "Every podcast row with Active=true in the Notion Podcasts database was checked for new episodes.",
+        "severity": "critical"
+      },
+      {
+        "name": "no_duplicate_episodes",
+        "description": "No episode that already appears in seen_episodes.json was reprocessed.",
+        "severity": "high"
+      },
+      {
+        "name": "interest_profile_applied",
+        "description": "Each episode summary references at least one theme, person, or company from the interest profile, OR explicitly notes 'not aligned with profile, surfacing because [reason]'.",
+        "severity": "medium"
+      },
+      {
+        "name": "transcripts_or_explicit_fallback",
+        "description": "For each new episode, either a transcript was successfully fetched OR the episode was marked pending_youtube with a clear reason in the briefing.",
+        "severity": "high"
+      }
+    ]
+  }
+}
