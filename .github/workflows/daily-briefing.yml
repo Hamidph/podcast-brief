@@ -17,6 +17,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -42,6 +43,13 @@ jobs:
 
           today = "$TODAY"
           notion_token = os.environ["NOTION_TOKEN"]
+          slack_token = os.environ.get("SLACK_BOT_TOKEN", "")
+
+          slack_instruction = ""
+          if slack_token:
+              slack_instruction = f'''
+          export SLACK_BOT_TOKEN="{slack_token}"
+          export SLACK_CHANNEL_ID="C0B5CNS4RJ5"'''
 
           prompt = f"""Run your daily podcast briefing for {today} (timezone: Europe/London).
 
@@ -50,10 +58,11 @@ jobs:
           export NOTION_TOKEN="{notion_token}"
           export NOTION_PODCASTS_DB_ID="27d43c5f-e417-4b63-ac76-970108d6440a"
           export NOTION_BRIEFINGS_DB_ID="9efebf0f-01ba-459c-9709-ca80e1ac23af"
-          export NOTION_INTEREST_PROFILE_PAGE_ID="3672897b-8e36-812a-8f1f-e186d1adedf2"
+          export NOTION_INTEREST_PROFILE_PAGE_ID="3672897b-8e36-812a-8f1f-e186d1adedf2"{slack_instruction}
           \`\`\`
 
-          Execute your daily routine end-to-end. Skip email delivery."""
+          Execute your daily routine end-to-end. Skip email delivery.
+          {"Post a Slack message to channel C0B5CNS4RJ5 using the Slack API (chat.postMessage with Bearer token)." if slack_token else "Skip Slack delivery (no token available)."}"""
 
           resp = requests.post(
               f"https://api.anthropic.com/v1/sessions/$SESSION_ID/events",
@@ -69,15 +78,15 @@ jobs:
           PYEOF
           echo "::endgroup::"
 
-          echo "::group::Polling session status"
-          for i in $(seq 1 20); do
+          echo "::group::Polling session status (up to 15 min)"
+          for i in $(seq 1 30); do
             sleep 30
             STATUS=$(curl -s "https://api.anthropic.com/v1/sessions/$SESSION_ID" \
               -H "x-api-key: $ANTHROPIC_API_KEY" \
               -H "anthropic-version: 2023-06-01" \
               -H "anthropic-beta: $BETA" \
               | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))")
-            echo "[$i/20] Status: $STATUS"
+            echo "[$i/30] Status: $STATUS"
             if [ "$STATUS" = "idle" ] || [ "$STATUS" = "terminated" ]; then
               break
             fi
