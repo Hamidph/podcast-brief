@@ -18,6 +18,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
           set -euo pipefail
 
@@ -44,12 +45,19 @@ jobs:
           today = "$TODAY"
           notion_token = os.environ["NOTION_TOKEN"]
           slack_token = os.environ.get("SLACK_BOT_TOKEN", "")
+          resend_key = os.environ.get("RESEND_API_KEY", "")
 
-          slack_instruction = ""
+          extra_exports = ""
           if slack_token:
-              slack_instruction = f'''
-          export SLACK_BOT_TOKEN="{slack_token}"
-          export SLACK_CHANNEL_ID="C0B5CNS4RJ5"'''
+              extra_exports += f'\nexport SLACK_BOT_TOKEN="{slack_token}"\nexport SLACK_CHANNEL_ID="C0B5CNS4RJ5"'
+          if resend_key:
+              extra_exports += f'\nexport RESEND_API_KEY="{resend_key}"'
+
+          delivery_instructions = []
+          if slack_token:
+              delivery_instructions.append("Post a Slack message to channel C0B5CNS4RJ5 using the Slack API (chat.postMessage with Bearer token).")
+          if resend_key:
+              delivery_instructions.append('Send an email via Resend API: POST https://api.resend.com/emails with from="onboarding@resend.dev", to="phl.hamidreza@gmail.com", subject="Podcast briefing — ' + today + '", html=briefing content.')
 
           prompt = f"""Run your daily podcast briefing for {today} (timezone: Europe/London).
 
@@ -58,11 +66,11 @@ jobs:
           export NOTION_TOKEN="{notion_token}"
           export NOTION_PODCASTS_DB_ID="27d43c5f-e417-4b63-ac76-970108d6440a"
           export NOTION_BRIEFINGS_DB_ID="9efebf0f-01ba-459c-9709-ca80e1ac23af"
-          export NOTION_INTEREST_PROFILE_PAGE_ID="3672897b-8e36-812a-8f1f-e186d1adedf2"{slack_instruction}
+          export NOTION_INTEREST_PROFILE_PAGE_ID="3672897b-8e36-812a-8f1f-e186d1adedf2"{extra_exports}
           \`\`\`
 
-          Execute your daily routine end-to-end. Skip email delivery.
-          {"Post a Slack message to channel C0B5CNS4RJ5 using the Slack API (chat.postMessage with Bearer token)." if slack_token else "Skip Slack delivery (no token available)."}"""
+          Execute your daily routine end-to-end.
+          {' '.join(delivery_instructions) if delivery_instructions else 'Skip Slack and email delivery.'}"""
 
           resp = requests.post(
               f"https://api.anthropic.com/v1/sessions/$SESSION_ID/events",
