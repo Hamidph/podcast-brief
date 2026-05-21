@@ -1,0 +1,18 @@
+{
+  "agent_id": "agent_01WJQzuPhtF7m3gSJFFicboY",
+  "agent_id_with_mcp": "agent_01NP5h8FRup4RvBHf4UGqyRm",
+  "environment_id": "env_01NqkFM2wqQMYZoJwS6fpSZn",
+  "vault_id": "vlt_011CbFpUEa6TYXyJLaa9hHrU",
+  "notion_podcasts_db_id": "27d43c5f-e417-4b63-ac76-970108d6440a",
+  "notion_briefings_db_id": "9efebf0f-01ba-459c-9709-ca80e1ac23af",
+  "notion_interest_profile_page_id": "3672897b-8e36-812a-8f1f-e186d1adedf2",
+  "slack_channel_id": "C0B5CNS4RJ5",
+  "first_run_date": "2026-05-21",
+  "first_run_session_id": "sesn_01MWWDmKAUX496c8xReESUEQ",
+  "notes": {
+    "scheduling": "Managed Agents scheduling API not yet available. Use scripts/trigger_run.sh or external cron.",
+    "notion_mcp": "Notion MCP auth (static_bearer) was rejected. Agent uses Notion REST API via bash instead.",
+    "youtube_transcripts": "Blocked from cloud IPs. Agent falls back to RSS descriptions + its own knowledge.",
+    "dwarkesh_rss": "feeds.buzzsprout.com/2040953.rss returns wrong show. Needs to be updated in Notion."
+  }
+}
