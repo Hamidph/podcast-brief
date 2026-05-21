@@ -1,0 +1,91 @@
+name: Daily Podcast Briefing
+
+on:
+  schedule:
+    # 8:00 AM London time
+    # UK is UTC+0 in winter (GMT), UTC+1 in summer (BST)
+    # 7:00 UTC covers BST (summer), 8:00 UTC covers GMT (winter)
+    # Using 7:00 UTC = 8:00 BST (current, May-Oct)
+    - cron: '0 7 * * *'
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+jobs:
+  run-briefing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Trigger Managed Agent session
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          AGENT_ID="agent_01WJQzuPhtF7m3gSJFFicboY"
+          ENV_ID="env_01NqkFM2wqQMYZoJwS6fpSZn"
+          BETA="managed-agents-2026-04-01"
+          TODAY=$(TZ="Europe/London" date +%Y-%m-%d)
+
+          echo "::group::Creating session for $TODAY"
+          SESSION_ID=$(curl -sfS "https://api.anthropic.com/v1/sessions" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "anthropic-beta: $BETA" \
+            -H "content-type: application/json" \
+            -d "{\"agent\": \"$AGENT_ID\", \"environment_id\": \"$ENV_ID\"}" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+          echo "Session: $SESSION_ID"
+          echo "::endgroup::"
+
+          echo "::group::Sending daily run prompt"
+          PROMPT="Run your daily podcast briefing for $TODAY (timezone: Europe/London).
+
+          FIRST: set up environment:
+          \`\`\`bash
+          export NOTION_TOKEN=\"$NOTION_TOKEN\"
+          export NOTION_PODCASTS_DB_ID=\"27d43c5f-e417-4b63-ac76-970108d6440a\"
+          export NOTION_BRIEFINGS_DB_ID=\"9efebf0f-01ba-459c-9709-ca80e1ac23af\"
+          export NOTION_INTEREST_PROFILE_PAGE_ID=\"3672897b-8e36-812a-8f1f-e186d1adedf2\"
+          \`\`\`
+
+          Execute your daily routine end-to-end. Skip email delivery."
+
+          python3 -c "
+          import json, requests, os
+          resp = requests.post(
+              'https://api.anthropic.com/v1/sessions/$SESSION_ID/events',
+              headers={
+                  'x-api-key': os.environ['ANTHROPIC_API_KEY'],
+                  'anthropic-version': '2023-06-01',
+                  'anthropic-beta': '$BETA',
+                  'content-type': 'application/json',
+              },
+              json={'events': [{'type': 'user.message', 'content': [{'type': 'text', 'text': os.environ['PROMPT']}]}]},
+          )
+          print(f'Sent: {resp.status_code}')
+          " 
+          echo "::endgroup::"
+
+          echo "::group::Polling session status"
+          for i in $(seq 1 20); do
+            sleep 30
+            STATUS=$(curl -s "https://api.anthropic.com/v1/sessions/$SESSION_ID" \
+              -H "x-api-key: $ANTHROPIC_API_KEY" \
+              -H "anthropic-version: 2023-06-01" \
+              -H "anthropic-beta: $BETA" \
+              | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))")
+            echo "[$i/20] Status: $STATUS"
+            if [ "$STATUS" = "idle" ] || [ "$STATUS" = "terminated" ]; then
+              break
+            fi
+          done
+          echo "::endgroup::"
+
+          echo "Final status: $STATUS"
+          echo "Session ID: $SESSION_ID"
+
+          if [ "$STATUS" = "terminated" ]; then
+            echo "::error::Agent session terminated with an error"
+            exit 1
+          fi
